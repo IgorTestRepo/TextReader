@@ -6,6 +6,7 @@
 package textreader;
 
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Comparator;
@@ -22,36 +23,36 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class StartReading  { 
+public class StartReading {
 
     private final ConcurrentHashMap<Integer, Long> map;
 
     private final AtomicInteger counter = new AtomicInteger(1);
-    
+
     private static final Logger LOG = Logger.getLogger(StartReading.class.getName());
 
-
+    
     public StartReading() {
         this.map = new ConcurrentHashMap<>();
     }
 
     public void readFile(String uriPath) throws IOException {
-        
-        ExecutorService es = Executors.newFixedThreadPool(5);
 
+        ExecutorService es = Executors.newFixedThreadPool(5);
+        
         try (Stream<String> streamTextFiles = Files.lines(Paths.get(uriPath))) {
             streamTextFiles.forEach((row) -> {
                 es.submit(() -> {
                     map.put(counter.getAndIncrement(), Pattern.compile("[\\P{L}]+").splitAsStream(row).count());
                 });
             });
-
+            
         }
         es.shutdown();
         try {
             es.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
         } catch (InterruptedException e) {
-            
+            LOG.log(Level.SEVERE, "Exception:{0}", e.getMessage());
         }
     }
 
@@ -75,24 +76,24 @@ public class StartReading  {
     private void printResult(Map<Integer, Long> mapToPrint) {
         mapToPrint.forEach((key, value) -> {
 //            System.out.printf("%d - %d;\n", value, key);
-        LOG.log(Level.INFO, "{0} - {1}", new Object[]{value, key});
+            LOG.log(Level.INFO, "{0} - {1}", new Object[]{value, key});
 
         });
     }
 
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) {
         try {
-            
+
             StartReading sr = new StartReading();
-            
+
             sr.readFile(args[0]);
-            
+
             sr.sortByRowNumber();
-            
-            LOG.log(Level.INFO,"\n------------------------------------\n");
-            
+
+            LOG.log(Level.INFO, "\n------------------------------------\n");
+
             sr.sortByCounter();
-            
+
         } catch (IOException ex) {
             LOG.log(Level.SEVERE, null, ex.getMessage());
         }
